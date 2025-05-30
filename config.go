@@ -12,10 +12,9 @@ import (
 
 // Config is the top-level configuration structure.
 type Config struct {
-	DiscordToken    string `yaml:"discordToken"`
-	PushoverUserKey string `yaml:"pushoverUserKey"`
-	PushoverAppKey  string `yaml:"pushoverAppKey"`
-	Rules           []Rule `yaml:"rules"`
+	DiscordToken   string `yaml:"discordToken"`
+	PushoverAppKey string `yaml:"pushoverAppKey"`
+	Rules          []Rule `yaml:"rules"`
 }
 
 // Rule defines a single rule for processing messages.
