@@ -11,8 +11,12 @@ import (
 
 // ProcessRules iterates through the configured rules and processes the first one that matches.
 // previouslyNotifiedRulePriority helps avoid duplicate Pushover notifications if a bot reaction triggered the update.
-func ProcessRules(message *discordgo.MessageCreate, config *Config, session DiscordSessionInterface, previouslyNotifiedRulePriority int) {
-	log.Infof("Processing rules for message ID %s (user: %s, channel: %s). Previously notified priority: %d", message.ID, message.Author.Username, message.ChannelID, previouslyNotifiedRulePriority)
+func ProcessRules(message *discordgo.Message, config *Config, session DiscordSessionInterface, previouslyNotifiedRulePriority int) {
+	authorUsername := "unknown_author"
+	if message.Author != nil { // Author can be nil for some system messages or if not properly resolved
+		authorUsername = message.Author.Username
+	}
+	log.Infof("Processing rules for message ID %s (user: %s, channel: %s). Previously notified priority: %d", message.ID, authorUsername, message.ChannelID, previouslyNotifiedRulePriority)
 	for i, rule := range config.Rules {
 		ruleNameLog := rule.Name
 		if ruleNameLog == "" {
@@ -113,7 +117,7 @@ func ProcessRules(message *discordgo.MessageCreate, config *Config, session Disc
 // checkRuleConditions evaluates all conditions for a single rule using AND logic.
 // A condition is considered "active" if its corresponding field in the config is non-zero.
 // If a condition is active, it must evaluate to true. If not active, it's skipped (effectively true).
-func checkRuleConditions(message *discordgo.MessageCreate, conditions *RuleConditions, session DiscordSessionInterface, ruleNameLog string) bool {
+func checkRuleConditions(message *discordgo.Message, conditions *RuleConditions, session DiscordSessionInterface, ruleNameLog string) bool {
 	logPrefix := fmt.Sprintf("Rule '%s', MessageID '%s': ", ruleNameLog, message.ID) // Keep this prefix for readability in logs
 
 	// ChannelID condition
@@ -125,40 +129,48 @@ func checkRuleConditions(message *discordgo.MessageCreate, conditions *RuleCondi
 		log.Debugf(logPrefix+"Condition passed (ChannelID): %s", conditions.ChannelID)
 	}
 
-	// MessageHasEmoji condition (checks reactions on the message)
+	// MessageHasEmoji condition (checks reactions on the message) - ANY OF LOGIC
 	if len(conditions.MessageHasEmoji) > 0 {
-		allRequiredEmojisFound := true // Assume true, prove false
-		for _, reactionEmojiName := range conditions.MessageHasEmoji {
-			singleRequiredEmojiFound := false
-			for _, reaction := range message.Reactions { // message is *discordgo.MessageCreate, so message.Reactions is fullMessage.Reactions
-				if reaction.Emoji.Name == reactionEmojiName {
-					// If ReactToAtMention is a condition for this rule, and the bot ("Me") added this specific reaction,
-					// then this specific reaction instance doesn't count towards fulfilling MessageHasEmoji.
-					if conditions.ReactToAtMention && reaction.Me {
-						log.Debugf(logPrefix+"Reaction emoji '%s' found, but ignored for MessageHasEmoji because ReactToAtMention is true and bot added this reaction (reaction.Me is true).", reaction.Emoji.Name)
-						continue // This specific reaction instance (by the bot) doesn't count. Check other instances of the same emoji.
+		anyEmojiFound := false
+		// Iterate through reactions present on the message
+		for _, reactionOnMessage := range message.Reactions {
+			// Check if this reaction matches ANY of the emojis specified in the rule's conditions
+			for _, requiredEmojiName := range conditions.MessageHasEmoji {
+				if reactionOnMessage.Emoji.Name == requiredEmojiName {
+					// An emoji specified in the condition is found on the message.
+					// Now, apply the ReactToAtMention & reaction.Me exclusion.
+					if conditions.ReactToAtMention && reactionOnMessage.Me {
+						log.Debugf(logPrefix+"MessageHasEmoji: Candidate reaction emoji '%s' found (added by bot, reaction.Me=true), but will be ignored because ReactToAtMention is true for this rule.", reactionOnMessage.Emoji.Name)
+						// This specific reaction instance (by the bot) doesn't count.
+						// However, another user might have reacted with the same requiredEmojiName,
+						// or another requiredEmojiName might be present.
+						// So, we 'continue' to the next requiredEmojiName in conditions, or next reactionOnMessage.
+						// Effectively, this current reactionOnMessage does not satisfy this requiredEmojiName.
+						// We need to check if other requiredEmojiNames match this reactionOnMessage OR if other reactionsOnMessage match this/other requiredEmojiNames.
+						// The current structure will correctly move to check if reactionOnMessage matches another requiredEmojiName,
+						// or if it doesn't, move to the next reactionOnMessage.
+						// This 'continue' is for the inner loop (requiredEmojiName).
+						continue
 					}
-					singleRequiredEmojiFound = true
-					log.Debugf(logPrefix+"Condition MessageHasEmoji: Found required reaction emoji '%s' (reaction.Me: %t).", reaction.Emoji.Name, reaction.Me)
-					break // Found this specific required emoji
+					// Valid match found (correct emoji name, and not excluded by ReactToAtMention+Me logic)
+					log.Debugf(logPrefix+"Condition MessageHasEmoji: Found matching reaction emoji '%s' (reaction.Me: %t). Condition met (ANY of).", reactionOnMessage.Emoji.Name, reactionOnMessage.Me)
+					anyEmojiFound = true
+					goto endOfEmojiCheck // Break out of both emoji loops since ANY is enough
 				}
 			}
-			if !singleRequiredEmojiFound {
-				allRequiredEmojisFound = false // This required emoji was not found (or was ignored due to bot+mention interaction)
-				log.Debugf(logPrefix+"Condition failed (MessageHasEmoji): Required reaction emoji '%s' not found or was ignored.", reactionEmojiName)
-				break // No need to check other required emojis
-			}
 		}
-		if !allRequiredEmojisFound {
-			// Log which emojis were required, and what reactions are present for debugging
+	endOfEmojiCheck: // Label to break outer loop
+
+		if !anyEmojiFound {
 			presentEmojis := []string{}
 			for _, r := range message.Reactions {
 				presentEmojis = append(presentEmojis, fmt.Sprintf("%s (Me:%t)", r.Emoji.Name, r.Me))
 			}
-			log.Debugf(logPrefix+"Condition failed (MessageHasEmoji): Not all required emojis %v found or applicable. Present reactions: [%s]", conditions.MessageHasEmoji, strings.Join(presentEmojis, ", "))
+			log.Debugf(logPrefix+"Condition failed (MessageHasEmoji): None of the required emojis %v were found (or applicable after exclusions). Present reactions: [%s]", conditions.MessageHasEmoji, strings.Join(presentEmojis, ", "))
 			return false
 		}
-		log.Debugf(logPrefix+"Condition passed (MessageHasEmoji): All required emojis %v found and applicable.", conditions.MessageHasEmoji)
+		// If anyEmojiFound is true, this log is implicitly covered by the positive match log inside the loop.
+		// log.Debugf(logPrefix+"Condition passed (MessageHasEmoji): At least one of required emojis %v found and applicable.", conditions.MessageHasEmoji)
 	}
 
 	// ContentIncludes condition (ALL keywords must be present)

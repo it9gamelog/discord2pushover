@@ -182,9 +182,11 @@ func main() {
 	// Register handlers
 	dg.AddHandler(messageCreate)
 	dg.AddHandler(messageUpdate)
+	dg.AddHandler(dgMessageReactionAdd) // Register new handler
 
 	// We need intents for messages and message reactions to get message update events with reaction data.
-	dg.Identify.Intents = discordgo.IntentsGuildMessages | discordgo.IntentsGuildMessageReactions
+	// Also add DirectMessageReactions for DM support.
+	dg.Identify.Intents = discordgo.IntentsGuildMessages | discordgo.IntentsGuildMessageReactions | discordgo.IntentsDirectMessageReactions
 
 	// Open a websocket connection to Discord and begin listening.
 	err = dg.Open()
@@ -303,13 +305,13 @@ func messageCreate(s *discordgo.Session, m *discordgo.MessageCreate) {
 	}
 
 	// Log the basic message info (can be removed or made more verbose later)
-	log.Debugf("Received message: ID=%s, AuthorID=%s, ChannelID=%s, Content='%s'", m.ID, m.Author.ID, m.ChannelID, m.Content)
+	log.Debugf("Received message: ID=%s, AuthorID=%s, ChannelID=%s, Content='%s'", m.Message.ID, m.Message.Author.ID, m.Message.ChannelID, m.Message.Content) // Use m.Message for consistency
 
 	// Process rules against the message
 	if globalConfig != nil {
 		wrapper := &DiscordGoSessionWrapper{RealSession: s}
 		// For new messages, there's no prior notification context from bot reactions on this message event
-		ProcessRules(m, globalConfig, wrapper, math.MaxInt32)
+		ProcessRules(m.Message, globalConfig, wrapper, math.MaxInt32) // Pass m.Message
 	} else {
 		// This should ideally not happen if main() ensures globalConfig is initialized.
 		log.Error("globalConfig is nil in messageCreate. Rules cannot be processed.")
@@ -362,13 +364,9 @@ func messageUpdateLogic(s DiscordSessionInterface, m *discordgo.MessageUpdate) {
 	// Convert discordgo.Message to discordgo.MessageCreate so ProcessRules can be reused.
 	// Note: This is a simplification. Some fields might not perfectly align or might be missing.
 	// For ProcessRules, we primarily need ID, ChannelID, Content, Author, Mentions, Reactions, GuildID.
-	// MessageCreate Author is *User, Message Author is *User.
+	// MessageCreate Author is *User, Message Author is *User. (Now ProcessRules takes *discordgo.Message)
 	// MessageCreate GuildID is string, Message GuildID is string.
 	// It's important that ProcessRules only accesses fields available and relevant in both.
-	// A more robust solution might involve a shared interface or a dedicated processing function for updates.
-	msgCreateLike := &discordgo.MessageCreate{
-		Message: fullMessage,
-	}
 
 	// Log the basic message info
 	log.Debugf("Processing update for message: ID=%s, AuthorID=%s, ChannelID=%s, Content='%s', Reactions: %d",
@@ -403,8 +401,75 @@ func messageUpdateLogic(s DiscordSessionInterface, m *discordgo.MessageUpdate) {
 			log.Debugf("messageUpdateLogic: Determined highest previously notified rule priority (from bot reactions) as: %d", previouslyNotifiedRulePriority)
 		}
 
-		ProcessRules(msgCreateLike, globalConfig, s, previouslyNotifiedRulePriority)
+		ProcessRules(fullMessage, globalConfig, s, previouslyNotifiedRulePriority) // Pass fullMessage directly
 	} else {
 		log.Error("globalConfig is nil in messageUpdate. Rules cannot be processed.")
+	}
+}
+
+// dgMessageReactionAdd is the raw handler for discordgo's MessageReactionAdd events
+func dgMessageReactionAdd(s *discordgo.Session, r *discordgo.MessageReactionAdd) {
+	wrapper := &DiscordGoSessionWrapper{RealSession: s}
+	messageReactionAddLogic(wrapper, r)
+}
+
+// messageReactionAddLogic contains the testable logic for handling reaction additions.
+func messageReactionAddLogic(s DiscordSessionInterface, r *discordgo.MessageReactionAdd) {
+	log.Infof("Received MessageReactionAdd event: UserID: %s, MessageID: %s, Emoji: %s (ID: %s)",
+		r.UserID, r.MessageID, r.Emoji.Name, r.Emoji.ID)
+
+	sessionState := s.State()
+	if sessionState == nil || sessionState.User == nil {
+		log.Error("messageReactionAddLogic: session state or user is nil. Cannot reliably determine bot ID. Skipping.")
+		return
+	}
+	botID := sessionState.User.ID
+
+	// Ignore reactions added by the bot itself
+	if r.UserID == botID {
+		log.Debugf("Ignoring reaction added by the bot itself (UserID: %s)", r.UserID)
+		return
+	}
+
+	// Fetch the full message to get its content, author, and current reactions
+	fullMessage, err := s.ChannelMessage(r.ChannelID, r.MessageID)
+	if err != nil {
+		log.Errorf("Error fetching full message for reaction add (MsgID: %s, ChanID: %s): %v", r.MessageID, r.ChannelID, err)
+		return
+	}
+	// Note: discordgo might update fullMessage.Reactions *after* this event, or this event might be the source of truth
+	// for the new reaction. For safety, ensure the current reaction is reflected if needed,
+	// but ProcessRules usually iterates fullMessage.Reactions which should be mostly up-to-date from cache or this fetch.
+	// If fullMessage.Reactions doesn't include r.Emoji, and rules depend on it, that's a potential issue.
+	// However, the primary purpose here is to re-evaluate rules based on the *state of the message including reactions*.
+
+	// Determine previouslyNotifiedRulePriority based on existing bot reactions on the message
+	previouslyNotifiedRulePriority := math.MaxInt32
+	if globalConfig != nil && len(fullMessage.Reactions) > 0 && len(globalConfig.Rules) > 0 {
+		for _, reaction := range fullMessage.Reactions {
+			if reaction.Me { // Bot added this reaction
+				for _, rule := range globalConfig.Rules {
+					if rule.Actions.ReactionEmoji == reaction.Emoji.Name {
+						if rule.Actions.Priority < previouslyNotifiedRulePriority {
+							previouslyNotifiedRulePriority = rule.Actions.Priority
+						}
+						log.Debugf("messageReactionAddLogic: Bot reaction '%s' matches rule '%s' (Priority: %d). Current highest notified: %d",
+							reaction.Emoji.Name, rule.Name, rule.Actions.Priority, previouslyNotifiedRulePriority)
+					}
+				}
+			}
+		}
+	}
+	if previouslyNotifiedRulePriority == math.MaxInt32 {
+		log.Debugf("messageReactionAddLogic: No prior bot reactions found matching rule actions for msg %s.", r.MessageID)
+	} else {
+		log.Debugf("messageReactionAddLogic: Determined highest previously notified rule priority for msg %s as: %d", r.MessageID, previouslyNotifiedRulePriority)
+	}
+
+	// Process rules against the message state
+	if globalConfig != nil {
+		ProcessRules(fullMessage, globalConfig, s, previouslyNotifiedRulePriority)
+	} else {
+		log.Error("globalConfig is nil in messageReactionAddLogic. Rules cannot be processed.")
 	}
 }
