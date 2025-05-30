@@ -194,3 +194,111 @@ To print the version information (version, commit hash, build date), use the `-v
 ```
 
 This information is embedded at build time if building from a Git repository.
+
+## Running with Docker
+
+This application can be run as a Docker container. Images are automatically built and pushed to the GitHub Container Registry (GHCR).
+
+### Prerequisites
+
+- Docker installed on your system.
+- A configuration file (`discord2pushover.yaml` or `discord2pushover.yml`) prepared as described in the [Configuration](#configuration-discord2pushoveryaml) section.
+
+### Pulling the Image
+
+You can pull the latest image using:
+
+```bash
+docker pull ghcr.io/it9gamelog/discord2pushover:latest
+```
+
+You can also pull images tagged with a specific commit SHA:
+
+```bash
+docker pull ghcr.io/it9gamelog/discord2pushover:[COMMIT_SHA]
+```
+
+### Running with `docker run`
+
+To run the container, you need to mount your configuration file into the `/app` directory within the container. The application, by default (as per Dockerfile `WORKDIR /app` and `ENTRYPOINT`), will look for `discord2pushover.yaml` or `discord2pushover.yml` in its current working directory (`/app`).
+
+**Example:**
+
+Assuming your configuration file is located at `/path/to/your/discord2pushover.yaml` on your host machine:
+
+```bash
+docker run -d --name discord2pushover \
+  -v /path/to/your/discord2pushover.yaml:/app/discord2pushover.yaml \
+  --restart unless-stopped \
+  ghcr.io/it9gamelog/discord2pushover:latest
+```
+
+**Explanation:**
+
+- `-d`: Run the container in detached mode (in the background).
+- `--name discord2pushover`: Assign a name to the container for easier management.
+- `-v /path/to/your/discord2pushover.yaml:/app/discord2pushover.yaml`: Mounts your local configuration file to `/app/discord2pushover.yaml` inside the container. The application will automatically pick this up. If you name your file `discord2pushover.yml`, adjust the command accordingly: `-v /path/to/your/discord2pushover.yml:/app/discord2pushover.yml`.
+- `--restart unless-stopped`: Configures the container to restart automatically unless it's manually stopped.
+- `ghcr.io/it9gamelog/discord2pushover:latest`: The image to run.
+
+If your configuration file has a different name or you want to place it in a different path inside the container, you can use the `-c` flag:
+
+```bash
+docker run -d --name discord2pushover \
+  -v /path/to/your/custom_config.yaml:/config/custom_config.yaml \
+  --restart unless-stopped \
+  ghcr.io/it9gamelog/discord2pushover:latest -c /config/custom_config.yaml
+```
+
+Remember to replace `it9gamelog` with your actual GitHub username or organization name where this repository is hosted.
+
+### Running with `docker-compose`
+
+You can also use `docker-compose` for easier management. Create a `docker-compose.yml` file with the following content:
+
+```yaml
+version: '3.8'
+
+services:
+  discord2pushover:
+    image: ghcr.io/it9gamelog/discord2pushover:latest
+    container_name: discord2pushover
+    restart: unless-stopped
+    volumes:
+      # Mount your configuration file.
+      # Adjust the source path to where your config file is located on the host.
+      # The target path should be /app/discord2pushover.yaml or /app/discord2pushover.yml
+      # so the application can find it automatically.
+      - /path/to/your/discord2pushover.yaml:/app/discord2pushover.yaml
+      # If you want to use a different config name/path inside the container,
+      # you'll need to adjust the command:
+      # - /path/to/your/custom_config.yaml:/config/custom_config.yaml
+    # If you mounted the config to a non-default location (e.g., /config/custom_config.yaml),
+    # you need to tell the application where to find it:
+    # command: ["-c", "/config/custom_config.yaml"]
+    # Environment variables for tokens can also be passed here if your config uses them.
+    # environment:
+    #   - DISCORD_BOT_TOKEN=your_actual_discord_token_here
+    #   - PUSHOVER_APP_KEY=your_actual_pushover_app_key_here
+
+# Make sure to replace `it9gamelog` with your GitHub username or organization.
+# Also, update `/path/to/your/discord2pushover.yaml` to the actual path of your configuration file.
+```
+
+To run with `docker-compose`:
+
+1.  Save the content above as `docker-compose.yml` in a directory of your choice.
+2.  Ensure your `discord2pushover.yaml` (or `.yml`) is correctly referenced in the `volumes` section.
+3.  Navigate to that directory in your terminal and run:
+
+```bash
+docker-compose up -d
+```
+
+To stop and remove the container:
+
+```bash
+docker-compose down
+```
+
+This setup assumes your configuration file (`discord2pushover.yaml` or `discord2pushover.yml`) is present at the specified host path and will be mounted to `/app/` inside the container, where the application expects it by default.
