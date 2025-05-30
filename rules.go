@@ -43,7 +43,7 @@ func ProcessRules(message *discordgo.Message, config *Config, session DiscordSes
 			// If current rule's priority is same or lower (numerically greater or equal) than a previously notified one, skip Pushover.
 			sendNotification := true
 			if rule.Actions.PushoverDestination != "" { // Only consider suppression if a destination is set
-				if previouslyNotifiedRulePriority != math.MaxInt32 && rule.Actions.Priority >= previouslyNotifiedRulePriority {
+				if previouslyNotifiedRulePriority != math.MaxInt32 && rule.Actions.Priority <= previouslyNotifiedRulePriority {
 					log.Warnf("Suppressing Pushover notification for rule '%s' (Priority: %d) on message ID %s. A notification with higher or equal priority (%d) was likely already sent due to bot reaction.",
 						ruleNameLog, rule.Actions.Priority, message.ID, previouslyNotifiedRulePriority)
 					sendNotification = false
