@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"log"
 	"strings"
+	"time"
 
 	"github.com/bwmarrin/discordgo"
 )
@@ -57,7 +58,7 @@ func ProcessRules(message *discordgo.MessageCreate, config *Config, session *dis
 						log.Printf("Warning: Rule '%s' has emergency priority but invalid 'expire' value (%d). Using default 1 hour for internal tracking.", ruleNameLog, rule.Actions.Emergency.Expire)
 						expiryDuration = 3600 * time.Second
 					}
-					
+
 					trackedMsg := TrackedEmergencyMessage{
 						DiscordMessageID:  message.ID,
 						DiscordChannelID:  message.ChannelID,
@@ -116,7 +117,7 @@ func checkRuleConditions(message *discordgo.MessageCreate, conditions *RuleCondi
 		}
 		log.Printf(logPrefix+"Condition passed (MessageHasEmoji): Found one of %v", conditions.MessageHasEmoji)
 	}
-	
+
 	// ContentIncludes condition (ALL keywords must be present)
 	if len(conditions.ContentIncludes) > 0 {
 		allKeywordsFound := true
@@ -140,22 +141,17 @@ func checkRuleConditions(message *discordgo.MessageCreate, conditions *RuleCondi
 	// ReactToAtMention condition
 	if conditions.ReactToAtMention {
 		botMentioned := false
-		if message.MentionsEveryone { // @everyone or @here implies bot is mentioned if it's in the channel
-			botMentioned = true
-			log.Printf(logPrefix+"ReactToAtMention: message mentions everyone/here.")
-		} else {
-			for _, user := range message.Mentions {
-				if user.ID == session.State.User.ID {
-					botMentioned = true
-					break
-				}
+		for _, user := range message.Mentions {
+			if user.ID == session.State.User.ID {
+				botMentioned = true
+				break
 			}
 		}
 		if !botMentioned {
 			log.Printf(logPrefix+"Condition failed (ReactToAtMention): Bot (ID: %s) was not mentioned.", session.State.User.ID)
 			return false
 		}
-		log.Printf(logPrefix+"Condition passed (ReactToAtMention): Bot was mentioned.")
+		log.Printf(logPrefix + "Condition passed (ReactToAtMention): Bot was mentioned.")
 	}
 
 	// SpecificMentions condition
@@ -193,6 +189,6 @@ func checkRuleConditions(message *discordgo.MessageCreate, conditions *RuleCondi
 	}
 
 	// If all active conditions passed (or no conditions were active), the rule conditions are met.
-	log.Printf(logPrefix+"All active conditions passed for rule.")
+	log.Printf(logPrefix + "All active conditions passed for rule.")
 	return true
 }

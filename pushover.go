@@ -3,6 +3,7 @@ package main
 import (
 	"fmt"
 	"log"
+	"time"
 
 	"github.com/gregdel/pushover"
 )
@@ -46,8 +47,8 @@ func SendPushoverNotification(config *Config, ruleAction *RuleActions, messageCo
 	case 2:
 		message.Priority = pushover.PriorityEmergency
 		if ruleAction.Emergency != nil {
-			message.Retry = ruleAction.Emergency.Retry
-			message.Expire = ruleAction.Emergency.Expire
+			message.Retry = time.Duration(ruleAction.Emergency.Retry) * time.Second
+			message.Expire = time.Duration(ruleAction.Emergency.Expire) * time.Second
 			// The gregdel/pushover library doesn't seem to have an explicit field for emergency sound.
 			// Typically, the sound is tied to the client or priority.
 			// Some libraries might allow specifying a sound, but this one defaults to Pushover's behavior for emergency.
@@ -84,60 +85,4 @@ func SendPushoverNotification(config *Config, ruleAction *RuleActions, messageCo
 	}
 
 	return "", nil
-}
-
-// CheckPushoverReceipt checks the status of a Pushover emergency notification receipt.
-func CheckPushoverReceipt(appKey string, receiptID string) (isAcknowledged bool, err error) {
-	if appKey == "" {
-		return false, fmt.Errorf("appKey is missing for checking Pushover receipt %s", receiptID)
-	}
-	if receiptID == "" {
-		return false, fmt.Errorf("receiptID is missing for checking Pushover receipt with appKey %s", appKey)
-	}
-	// log.Printf("Checking Pushover receipt status for ID: %s with appKey: %s", receiptID, appKey) // Too verbose for every 5s poll
-
-	// The gregdel/pushover library's App struct holds the token.
-	// However, GetReceipt is a function in the pushover package, not a method on App.
-	// It requires the app token (which is our appKey) and receiptID.
-	// pushover.GetReceipt(token, receipt string) (*ReceiptDetails, error)
-	
-	// Note: The library's `pushover.New(appKey)` creates an `App` instance,
-	// but `GetReceipt` is a package-level function that takes the token directly.
-	// So, we don't need to instantiate an `App` here if we only use `GetReceipt`.
-	// However, the `token` parameter for `GetReceipt` is indeed the Application's API token.
-
-	details, err := pushover.GetReceipt(appKey, receiptID)
-	if err != nil {
-		// Check for specific Pushover API errors if necessary, e.g., receipt not found might be a specific error code.
-		// For now, just return the error.
-		return false, fmt.Errorf("failed to get Pushover receipt details for %s: %w", receiptID, err)
-	}
-
-	// According to Pushover API docs:
-	// acknowledged: 1 if acknowledged, 0 otherwise
-	// acknowledged_by: user key of the user that acknowledged
-	// acknowledged_at: UNIX timestamp of acknowledgement time
-	// last_delivered_at: UNIX timestamp of when the notification was last sent (for retrying notifications)
-	// expired: 1 if notification has expired, 0 otherwise
-	// expires_at: UNIX timestamp of when the notification will expire
-	// called_back: 1 if a callback URL was called, 0 otherwise
-	// called_back_at: UNIX timestamp of callback time
-
-	// The library's ReceiptDetails struct has:
-	// type ReceiptDetails struct {
-	// 	 Status          int    `json:"status"`
-	// 	 Acknowledged    int    `json:"acknowledged"` // This is what we need
-	// 	 AcknowledgedBy  string `json:"acknowledged_by"`
-	// 	 AcknowledgedAt  int    `json:"acknowledged_at"`
-	// 	 LastDeliveredAt int    `json:"last_delivered_at"`
-	// 	 Expired         int    `json:"expired"`
-	// 	 ExpiresAt       int    `json:"expires_at"`
-	// 	 CalledBack      int    `json:"called_back"`
-	// 	 CalledBackAt    int    `json:"called_back_at"`
-	// 	 Request         string `json:"request"`
-	// 	 Errors          Errors `json:"errors"`
-	// }
-	// We need to check `details.Acknowledged == 1`.
-
-	return details.Acknowledged == 1, nil
 }

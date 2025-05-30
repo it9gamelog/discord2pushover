@@ -2,7 +2,6 @@ package main
 
 import (
 	"flag"
-	"flag"
 	"fmt"
 	"log" // Added for more consistent logging
 	"os"
@@ -13,6 +12,7 @@ import (
 	"time"
 
 	"github.com/bwmarrin/discordgo"
+	"github.com/gregdel/pushover"
 )
 
 // globalConfig holds the loaded application configuration.
@@ -22,8 +22,8 @@ var globalConfig *Config
 // TrackedEmergencyMessage holds information about an emergency Pushover notification
 // that requires acknowledgment tracking.
 type TrackedEmergencyMessage struct {
-	DiscordMessageID string
-	DiscordChannelID string
+	DiscordMessageID  string
+	DiscordChannelID  string
 	PushoverReceiptID string
 	AckEmoji          string
 	ExpiryTime        time.Time
@@ -131,7 +131,7 @@ func main() {
 	log.Println("Bot is now running. Press CTRL-C to exit.")
 	sc := make(chan os.Signal, 1)
 	signal.Notify(sc, syscall.SIGINT, syscall.SIGTERM, os.Interrupt)
-	
+
 	receivedSignal := <-sc
 	log.Printf("Received signal: %v. Shutting down...", receivedSignal)
 
@@ -149,6 +149,9 @@ func main() {
 // PollEmergencyAcknowledgements periodically checks Pushover for acknowledged emergency messages
 // and reacts on Discord if they are acknowledged.
 func PollEmergencyAcknowledgements(session *discordgo.Session, config *Config) {
+	// Create a new Pushover app instance
+	app := pushover.New(config.PushoverAppKey)
+
 	if config == nil {
 		log.Println("PollEmergencyAcknowledgements: globalConfig is nil, cannot poll.")
 		return
@@ -171,6 +174,7 @@ func PollEmergencyAcknowledgements(session *discordgo.Session, config *Config) {
 			trackedMsg, ok := value.(TrackedEmergencyMessage)
 			if !ok {
 				log.Printf("Error: Could not cast value for receipt %s to TrackedEmergencyMessage", receiptID)
+				trackedMessages.Delete(receiptID)
 				return true // continue iteration
 			}
 
@@ -184,14 +188,16 @@ func PollEmergencyAcknowledgements(session *discordgo.Session, config *Config) {
 
 			// Check Pushover for acknowledgment
 			log.Printf("Polling Pushover for receipt: %s (DiscordMsg: %s)", receiptID, trackedMsg.DiscordMessageID)
-			isAcknowledged, err := CheckPushoverReceipt(config.PushoverAppKey, receiptID)
+
+			receiptDetails, err := app.GetReceiptDetails(receiptID) // This is a blocking call, so it will wait for the response
 			if err != nil {
 				log.Printf("Error checking Pushover receipt %s: %v", receiptID, err)
 				// Don't remove from map, try again next time unless it's a permanent error (not handled yet)
-				return true // continue iteration
-			}
-
-			if isAcknowledged {
+			} else if receiptDetails.Status != 1 {
+				log.Printf("Pushover receipt %s returned non-success status (%d).", receiptID, receiptDetails.Status)
+				// Remove from map
+				trackedMessages.Delete(receiptID)
+			} else if receiptDetails.Acknowledged {
 				log.Printf("Pushover emergency message (Receipt: %s, DiscordMsg: %s) was acknowledged!",
 					receiptID, trackedMsg.DiscordMessageID)
 

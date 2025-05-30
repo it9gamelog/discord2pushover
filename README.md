@@ -102,7 +102,6 @@ Each `rule` object has the following structure:
 ```yaml
 # Global settings
 discordToken: "$DISCORD_BOT_TOKEN" # Replaced by environment variable DISCORD_BOT_TOKEN
-# pushoverUserKey: "uYourGlobalPushoverUserKey" # Usually defined per rule in actions.pushoverDestination
 pushoverAppKey: "${PUSHOVER_APP_KEY}" # Replaced by environment variable PUSHOVER_APP_KEY
 
 rules:
