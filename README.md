@@ -257,8 +257,6 @@ Remember to replace `it9gamelog` with your actual GitHub username or organizatio
 You can also use `docker-compose` for easier management. Create a `docker-compose.yml` file with the following content:
 
 ```yaml
-version: '3.8'
-
 services:
   discord2pushover:
     image: ghcr.io/it9gamelog/discord2pushover:latest
@@ -269,7 +267,7 @@ services:
       # Adjust the source path to where your config file is located on the host.
       # The target path should be /app/discord2pushover.yaml or /app/discord2pushover.yml
       # so the application can find it automatically.
-      - /path/to/your/discord2pushover.yaml:/app/discord2pushover.yaml
+      - ./discord2pushover.yaml:/app/discord2pushover.yaml
       # If you want to use a different config name/path inside the container,
       # you'll need to adjust the command:
       # - /path/to/your/custom_config.yaml:/config/custom_config.yaml
@@ -280,9 +278,6 @@ services:
     # environment:
     #   - DISCORD_BOT_TOKEN=your_actual_discord_token_here
     #   - PUSHOVER_APP_KEY=your_actual_pushover_app_key_here
-
-# Make sure to replace `it9gamelog` with your GitHub username or organization.
-# Also, update `/path/to/your/discord2pushover.yaml` to the actual path of your configuration file.
 ```
 
 To run with `docker-compose`:
