@@ -62,7 +62,7 @@ func TestCheckRuleConditions_MessageHasEmoji_Logic(t *testing.T) {
 	}{
 		// --- ANY OF LOGIC ---
 		{
-			name: "AnyOf: OneMatch (A of [A,B])",
+			name:       "AnyOf: OneMatch (A of [A,B])",
 			conditions: RuleConditions{MessageHasEmoji: []string{"🅰️", "🅱️"}},
 			messageReactions: []*discordgo.MessageReactions{
 				{Emoji: &discordgo.Emoji{Name: "🅰️"}, Me: false},
@@ -71,7 +71,7 @@ func TestCheckRuleConditions_MessageHasEmoji_Logic(t *testing.T) {
 			expectedLog:    []string{"Condition MessageHasEmoji: Found matching reaction emoji '🅰️'", "Condition met (ANY of)"},
 		},
 		{
-			name: "AnyOf: OneMatch (B of [A,B])",
+			name:       "AnyOf: OneMatch (B of [A,B])",
 			conditions: RuleConditions{MessageHasEmoji: []string{"🅰️", "🅱️"}},
 			messageReactions: []*discordgo.MessageReactions{
 				{Emoji: &discordgo.Emoji{Name: "🅱️"}, Me: false},
@@ -80,7 +80,7 @@ func TestCheckRuleConditions_MessageHasEmoji_Logic(t *testing.T) {
 			expectedLog:    []string{"Condition MessageHasEmoji: Found matching reaction emoji '🅱️'", "Condition met (ANY of)"},
 		},
 		{
-			name: "AnyOf: MultipleMatches (A,B of [A,B])",
+			name:       "AnyOf: MultipleMatches (A,B of [A,B])",
 			conditions: RuleConditions{MessageHasEmoji: []string{"🅰️", "🅱️"}},
 			messageReactions: []*discordgo.MessageReactions{
 				{Emoji: &discordgo.Emoji{Name: "🅰️"}, Me: false},
@@ -90,7 +90,7 @@ func TestCheckRuleConditions_MessageHasEmoji_Logic(t *testing.T) {
 			expectedLog:    []string{"Condition MessageHasEmoji: Found matching reaction emoji '🅰️'", "Condition met (ANY of)"},
 		},
 		{
-			name: "AnyOf: NoMatch (C on msg, [A,B] in rule)",
+			name:       "AnyOf: NoMatch (C on msg, [A,B] in rule)",
 			conditions: RuleConditions{MessageHasEmoji: []string{"🅰️", "🅱️"}},
 			messageReactions: []*discordgo.MessageReactions{
 				{Emoji: &discordgo.Emoji{Name: "🇨"}, Me: false},
@@ -99,15 +99,15 @@ func TestCheckRuleConditions_MessageHasEmoji_Logic(t *testing.T) {
 			expectedLog:    []string{"Condition failed (MessageHasEmoji): None of the required emojis [🅰️ 🅱️] were found"},
 		},
 		{
-			name: "AnyOf: EmptyReactionsOnMsg",
-			conditions: RuleConditions{MessageHasEmoji: []string{"🅰️", "🅱️"}},
+			name:             "AnyOf: EmptyReactionsOnMsg",
+			conditions:       RuleConditions{MessageHasEmoji: []string{"🅰️", "🅱️"}},
 			messageReactions: []*discordgo.MessageReactions{},
 			expectedResult:   false,
 			expectedLog:      []string{"Condition failed (MessageHasEmoji): None of the required emojis [🅰️ 🅱️] were found"},
 		},
 		// --- Interaction with ReactToAtMention ---
 		{
-			name: "AnyOf_ReactToMention: BotReactedMatch (A of [A,B]), Ignored",
+			name:       "AnyOf_ReactToMention: BotReactedMatch (A of [A,B]), Ignored",
 			conditions: RuleConditions{ReactToAtMention: true, MessageHasEmoji: []string{"🅰️", "🅱️"}},
 			messageReactions: []*discordgo.MessageReactions{
 				{Emoji: &discordgo.Emoji{Name: "🅰️"}, Me: true}, // Bot reaction
@@ -116,7 +116,7 @@ func TestCheckRuleConditions_MessageHasEmoji_Logic(t *testing.T) {
 			expectedLog:    []string{"MessageHasEmoji: Candidate reaction emoji '🅰️' found (added by bot, reaction.Me=true), but will be ignored", "Condition failed (MessageHasEmoji): None of the required emojis [🅰️ 🅱️] were found"},
 		},
 		{
-			name: "AnyOf_ReactToMention: BotReacted_A_Ignored, UserReacted_B_Match (A,B of [A,B])",
+			name:       "AnyOf_ReactToMention: BotReacted_A_Ignored, UserReacted_B_Match (A,B of [A,B])",
 			conditions: RuleConditions{ReactToAtMention: true, MessageHasEmoji: []string{"🅰️", "🅱️"}},
 			messageReactions: []*discordgo.MessageReactions{
 				{Emoji: &discordgo.Emoji{Name: "🅰️"}, Me: true},  // Bot reaction, ignored
@@ -126,7 +126,7 @@ func TestCheckRuleConditions_MessageHasEmoji_Logic(t *testing.T) {
 			expectedLog:    []string{"MessageHasEmoji: Candidate reaction emoji '🅰️' found (added by bot, reaction.Me=true), but will be ignored", "Condition MessageHasEmoji: Found matching reaction emoji '🅱️'", "Condition met (ANY of)"},
 		},
 		{
-			name: "AnyOf_NoReactToMention: BotReactedMatch (A of [A,B]), NotIgnored",
+			name:       "AnyOf_NoReactToMention: BotReactedMatch (A of [A,B]), NotIgnored",
 			conditions: RuleConditions{ReactToAtMention: false, MessageHasEmoji: []string{"🅰️", "🅱️"}}, // ReactToAtMention is false
 			messageReactions: []*discordgo.MessageReactions{
 				{Emoji: &discordgo.Emoji{Name: "🅰️"}, Me: true}, // Bot reaction, but not ignored
@@ -146,7 +146,6 @@ func TestCheckRuleConditions_MessageHasEmoji_Logic(t *testing.T) {
 				tt.conditions.ChannelID = msg.ChannelID
 			}
 
-
 			result := checkRuleConditions(msg, &tt.conditions, session, tt.name)
 			if result != tt.expectedResult {
 				t.Errorf("Test '%s': Expected result %v, got %v", tt.name, tt.expectedResult, result)
@@ -161,7 +160,6 @@ func TestCheckRuleConditions_MessageHasEmoji_Logic(t *testing.T) {
 		})
 	}
 }
-
 
 func TestProcessRules_NotificationSuppression(t *testing.T) {
 	if log == nil {
@@ -179,7 +177,7 @@ func TestProcessRules_NotificationSuppression(t *testing.T) {
 		log.SetOutput(originalLogOut)
 		log.SetLevel(originalLogLevel)
 		testHookDisablePushoverSend = originalTestHookDisablePushoverSend // Restore hook
-		testHookPushoverSendCalled = false // Reset for other tests if any
+		testHookPushoverSendCalled = false                                // Reset for other tests if any
 	}()
 	log.SetOutput(&testLogCap)
 	log.SetLevel(logrus.DebugLevel)
@@ -197,76 +195,76 @@ func TestProcessRules_NotificationSuppression(t *testing.T) {
 	}
 
 	tests := []struct {
-		name                         string
-		rule                         Rule
+		name                           string
+		rule                           Rule
 		previouslyNotifiedRulePriority int
-		configPushoverAppKey         string
-		expectSuppressionLog         bool
-		expectPushoverSendLog        bool
-		expectReactionAddLog         bool
+		configPushoverAppKey           string
+		expectSuppressionLog           bool
+		expectPushoverSendLog          bool
+		expectReactionAddLog           bool
 	}{
 		{
-			name: "Notify_PrioMaxInt32",
-			rule: Rule{Name: "TestRule1", Conditions: RuleConditions{ChannelID: "chProcRules"}, Actions: RuleActions{Priority: 0, PushoverDestination: "userkey", ReactionEmoji: "👍"}},
+			name:                           "Notify_PrioMaxInt32",
+			rule:                           Rule{Name: "TestRule1", Conditions: RuleConditions{ChannelID: "chProcRules"}, Actions: RuleActions{Priority: 0, PushoverDestination: "userkey", ReactionEmoji: "👍"}},
 			previouslyNotifiedRulePriority: math.MaxInt32,
-			configPushoverAppKey:         "fakeAppKey",
-			expectSuppressionLog:         false,
-			expectPushoverSendLog:        true,
-			expectReactionAddLog:         true,
+			configPushoverAppKey:           "fakeAppKey",
+			expectSuppressionLog:           false,
+			expectPushoverSendLog:          true,
+			expectReactionAddLog:           true,
 		},
 		{
-			name: "Notify_CurrentPrioHigher",
-			rule: Rule{Name: "TestRule2", Conditions: RuleConditions{ChannelID: "chProcRules"}, Actions: RuleActions{Priority: -1, PushoverDestination: "userkey", ReactionEmoji: "👍"}},
+			name:                           "Notify_CurrentPrioHigher",
+			rule:                           Rule{Name: "TestRule2", Conditions: RuleConditions{ChannelID: "chProcRules"}, Actions: RuleActions{Priority: 1, PushoverDestination: "userkey", ReactionEmoji: "👍"}},
 			previouslyNotifiedRulePriority: 0,
-			configPushoverAppKey:         "fakeAppKey",
-			expectSuppressionLog:         false,
-			expectPushoverSendLog:        true,
-			expectReactionAddLog:         true,
+			configPushoverAppKey:           "fakeAppKey",
+			expectSuppressionLog:           false,
+			expectPushoverSendLog:          true,
+			expectReactionAddLog:           true,
 		},
 		{
-			name: "Suppress_CurrentPrioEqual",
-			rule: Rule{Name: "TestRule3", Conditions: RuleConditions{ChannelID: "chProcRules"}, Actions: RuleActions{Priority: 0, PushoverDestination: "userkey", ReactionEmoji: "👍"}},
+			name:                           "Suppress_CurrentPrioEqual",
+			rule:                           Rule{Name: "TestRule3", Conditions: RuleConditions{ChannelID: "chProcRules"}, Actions: RuleActions{Priority: 0, PushoverDestination: "userkey", ReactionEmoji: "👍"}},
 			previouslyNotifiedRulePriority: 0,
-			configPushoverAppKey:         "fakeAppKey",
-			expectSuppressionLog:         true,
-			expectPushoverSendLog:        false,
-			expectReactionAddLog:         true,
+			configPushoverAppKey:           "fakeAppKey",
+			expectSuppressionLog:           true,
+			expectPushoverSendLog:          false,
+			expectReactionAddLog:           true,
 		},
 		{
-			name: "Suppress_CurrentPrioLower",
-			rule: Rule{Name: "TestRule4", Conditions: RuleConditions{ChannelID: "chProcRules"}, Actions: RuleActions{Priority: 1, PushoverDestination: "userkey", ReactionEmoji: "👍"}},
+			name:                           "Suppress_CurrentPrioLower",
+			rule:                           Rule{Name: "TestRule4", Conditions: RuleConditions{ChannelID: "chProcRules"}, Actions: RuleActions{Priority: -1, PushoverDestination: "userkey", ReactionEmoji: "👍"}},
 			previouslyNotifiedRulePriority: 0,
-			configPushoverAppKey:         "fakeAppKey",
-			expectSuppressionLog:         true,
-			expectPushoverSendLog:        false,
-			expectReactionAddLog:         true,
+			configPushoverAppKey:           "fakeAppKey",
+			expectSuppressionLog:           true,
+			expectPushoverSendLog:          false,
+			expectReactionAddLog:           true,
 		},
 		{
-			name: "NoPushover_NoDestination",
-			rule: Rule{Name: "TestRule5", Conditions: RuleConditions{ChannelID: "chProcRules"}, Actions: RuleActions{Priority: 0, PushoverDestination: "", ReactionEmoji: "👍"}},
+			name:                           "NoPushover_NoDestination",
+			rule:                           Rule{Name: "TestRule5", Conditions: RuleConditions{ChannelID: "chProcRules"}, Actions: RuleActions{Priority: 0, PushoverDestination: "", ReactionEmoji: "👍"}},
 			previouslyNotifiedRulePriority: math.MaxInt32,
-			configPushoverAppKey:         "fakeAppKey",
-			expectSuppressionLog:         false,
-			expectPushoverSendLog:        false,
-			expectReactionAddLog:         true,
+			configPushoverAppKey:           "fakeAppKey",
+			expectSuppressionLog:           false,
+			expectPushoverSendLog:          false,
+			expectReactionAddLog:           true,
 		},
 		{
-			name: "NoPushover_NoAppKey",
-			rule: Rule{Name: "TestRule6", Conditions: RuleConditions{ChannelID: "chProcRules"}, Actions: RuleActions{Priority: 0, PushoverDestination: "userkey", ReactionEmoji: "👍"}},
+			name:                           "NoPushover_NoAppKey",
+			rule:                           Rule{Name: "TestRule6", Conditions: RuleConditions{ChannelID: "chProcRules"}, Actions: RuleActions{Priority: 0, PushoverDestination: "userkey", ReactionEmoji: "👍"}},
 			previouslyNotifiedRulePriority: math.MaxInt32,
-			configPushoverAppKey:         "",
-			expectSuppressionLog:         false,
-			expectPushoverSendLog:        false,
-			expectReactionAddLog:         true,
+			configPushoverAppKey:           "",
+			expectSuppressionLog:           false,
+			expectPushoverSendLog:          false,
+			expectReactionAddLog:           true,
 		},
 		{
-			name: "NoReactionEmoji",
-			rule: Rule{Name: "TestRule7", Conditions: RuleConditions{ChannelID: "chProcRules"}, Actions: RuleActions{Priority: 0, PushoverDestination: "userkey"}},
+			name:                           "NoReactionEmoji",
+			rule:                           Rule{Name: "TestRule7", Conditions: RuleConditions{ChannelID: "chProcRules"}, Actions: RuleActions{Priority: 0, PushoverDestination: "userkey"}},
 			previouslyNotifiedRulePriority: math.MaxInt32,
-			configPushoverAppKey:         "fakeAppKey",
-			expectSuppressionLog:         false,
-			expectPushoverSendLog:        true,
-			expectReactionAddLog:         false,
+			configPushoverAppKey:           "fakeAppKey",
+			expectSuppressionLog:           false,
+			expectPushoverSendLog:          true,
+			expectReactionAddLog:           false,
 		},
 	}
 
@@ -307,8 +305,8 @@ func TestProcessRules_NotificationSuppression(t *testing.T) {
 						t.Errorf("Expected Pushover 'sent' log ('%s') not found. Log: %s", pushoverActuallySentLog, logOutput)
 					}
 					if !tt.expectPushoverSendLog && strings.Contains(logOutput, pushoverActuallySentLog) {
-                         t.Errorf("Unexpected Pushover 'sent' log ('%s') found. Log: %s", pushoverActuallySentLog, logOutput)
-                    }
+						t.Errorf("Unexpected Pushover 'sent' log ('%s') found. Log: %s", pushoverActuallySentLog, logOutput)
+					}
 
 				} else if tt.expectPushoverSendLog {
 					t.Errorf("Test logic error: expectPushoverSendLog is true but no destination/appkey, so send couldn't happen. Rule: %s", tt.rule.Name)
@@ -324,8 +322,8 @@ func TestProcessRules_NotificationSuppression(t *testing.T) {
 				if tt.rule.Actions.ReactionEmoji != "" && strings.Contains(logOutput, reactionAddLogExpected) {
 					t.Errorf("Unexpected MessageReactionAdd log ('%s') found. Log: %s", reactionAddLogExpected, logOutput)
 				} else if tt.rule.Actions.ReactionEmoji == "" && strings.Contains(logOutput, "MockDiscordSession: MessageReactionAdd called") {
-                    t.Errorf("Unexpected MessageReactionAdd log found when no ReactionEmoji was set. Log: %s", logOutput)
-                }
+					t.Errorf("Unexpected MessageReactionAdd log found when no ReactionEmoji was set. Log: %s", logOutput)
+				}
 			}
 		})
 	}
