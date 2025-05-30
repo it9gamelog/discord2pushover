@@ -1,8 +1,7 @@
 package main
 
 import (
-	"fmt"
-	"log"
+	"fmt" // Keep fmt for error wrapping
 	"os"
 	"regexp"
 	"strings"
@@ -14,6 +13,7 @@ import (
 type Config struct {
 	DiscordToken   string `yaml:"discordToken"`
 	PushoverAppKey string `yaml:"pushoverAppKey"`
+	LogLevel       string `yaml:"logLevel,omitempty"` // Added LogLevel
 	Rules          []Rule `yaml:"rules"`
 }
 
@@ -52,7 +52,7 @@ type EmergencyParams struct {
 // and replaces environment variable placeholders.
 func LoadConfig(filePath string) (*Config, error) {
 	// Read the YAML file
-	log.Printf("Reading configuration file: %s", filePath)
+	log.Infof("Reading configuration file: %s", filePath)
 	data, err := os.ReadFile(filePath)
 	if err != nil {
 		return nil, fmt.Errorf("failed to read config file %s: %w", filePath, err)
@@ -63,12 +63,12 @@ func LoadConfig(filePath string) (*Config, error) {
 
 	// Parse the YAML
 	var cfg Config
-	log.Println("Parsing YAML configuration...")
+	log.Info("Parsing YAML configuration...")
 	err = yaml.Unmarshal(substitutedData, &cfg)
 	if err != nil {
 		return nil, fmt.Errorf("failed to parse config file %s: %w", filePath, err)
 	}
-	log.Println("YAML configuration parsed successfully.")
+	log.Info("YAML configuration parsed successfully.")
 	return &cfg, nil
 }
 
@@ -90,11 +90,11 @@ func substituteEnvVars(data []byte) []byte {
 
 		val, isSet := os.LookupEnv(varName)
 		if isSet {
-			log.Printf("Substituting environment variable '%s' with value (length %d).", varName, len(val))
+			log.Debugf("Substituting environment variable '%s' with value (length %d).", varName, len(val))
 			// For security/privacy, don't log the actual value if it could be sensitive.
 			// If you need to debug specific values, you can temporarily log `val` itself.
 		} else {
-			log.Printf("Environment variable '%s' not set. Placeholder '%s' will remain.", varName, found)
+			log.Debugf("Environment variable '%s' not set. Placeholder '%s' will remain.", varName, found)
 			return found // Leave placeholder if not set
 		}
 		return val
