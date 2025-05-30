@@ -83,8 +83,8 @@ func ProcessRules(message *discordgo.Message, config *Config, session DiscordSes
 			}
 
 			// Handle emergency notification tracking if a receipt ID was returned (meaning notification was sent)
-			if sendNotification && errPushover == nil && receiptID != "" { // Check sendNotification and no error
-				if receiptID != "" && rule.Actions.Priority == 2 && rule.Actions.Emergency != nil {
+			if sendNotification && errPushover == nil && receiptID != "" && rule.Actions.Priority == 2 { // Check sendNotification and no error
+				if rule.Actions.Emergency != nil {
 					expiryDuration := time.Duration(rule.Actions.Emergency.Expire) * time.Second
 					if rule.Actions.Emergency.Expire <= 0 { // Ensure non-negative, non-zero expiry for tracking
 						log.Warnf("Rule '%s' has emergency priority but invalid 'expire' value (%d). Using default 1 hour for internal tracking.", ruleNameLog, rule.Actions.Emergency.Expire)
@@ -101,7 +101,7 @@ func ProcessRules(message *discordgo.Message, config *Config, session DiscordSes
 					trackedMessages.Store(receiptID, trackedMsg)
 					log.Infof("Tracking emergency message for rule '%s' (Receipt: %s, DiscordMsg: %s, AckEmoji: %s, Expires: %s)",
 						ruleNameLog, receiptID, message.ID, trackedMsg.AckEmoji, trackedMsg.ExpiryTime.Format(time.RFC3339))
-				} else if sendNotification && errPushover == nil && receiptID != "" && rule.Actions.Priority == 2 && rule.Actions.Emergency == nil {
+				} else {
 					log.Warnf("Rule '%s' is emergency priority but 'emergency' parameters are not defined. Cannot track acknowledgement, despite notification being sent.", ruleNameLog)
 				}
 			}
