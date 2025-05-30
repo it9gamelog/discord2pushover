@@ -1,9 +1,9 @@
 # Stage 1: Build the Go application
 FROM golang:1.22-alpine AS builder
 
-ARG Version
-ARG Commit
-ARG Date
+ARG Version="unknown"
+ARG Commit="unknown"
+ARG Date="unknown"
 
 # Set necessary environment variables for building
 ENV CGO_ENABLED=0
