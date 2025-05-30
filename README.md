@@ -45,8 +45,8 @@ If no configuration file is found, the application will print an error and exit.
 These settings are at the top level of your YAML file:
 
 -   `discordToken`: (string, required) Your Discord Bot Token. **Important**: This must be a Bot token, not a user token. Example: `"YOUR_DISCORD_BOT_TOKEN"`
--   `pushoverUserKey`: (string, required for some test scenarios, but typically per-rule) Your personal Pushover User Key. While it can be global, most notifications will use a `pushoverDestination` defined in a rule's actions. Example: `"YOUR_PUSHOVER_USER_KEY"`
 -   `pushoverAppKey`: (string, required) Your Pushover Application API Token. You need to register an application on the Pushover site to get this. Example: `"YOUR_PUSHOVER_APP_TOKEN"`
+-   `logLevel`: (string, optional) Sets the application's logging level. Valid values are `"trace"`, `"debug"`, `"info"`, `"warn"`, `"error"`, `"fatal"`, and `"panic"`. If omitted or invalid, defaults to `"info"`. Example: `"debug"`
 
 ### Environment Variable Substitution
 
@@ -103,6 +103,7 @@ Each `rule` object has the following structure:
 # Global settings
 discordToken: "$DISCORD_BOT_TOKEN" # Replaced by environment variable DISCORD_BOT_TOKEN
 pushoverAppKey: "${PUSHOVER_APP_KEY}" # Replaced by environment variable PUSHOVER_APP_KEY
+logLevel: "info" # Optional: trace, debug, info, warn, error, fatal, panic
 
 rules:
   - name: "Critical System Alert with Emoji"
